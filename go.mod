@@ -3,7 +3,9 @@ module github.com/sy-software/minerva-spear-users
 go 1.16
 
 require (
-	github.com/rs/zerolog v1.23.0 // indirect
-	github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a // indirect
-	golang.org/x/net v0.0.0-20210726213435-c6fcb2dbf985 // indirect
+	github.com/google/go-cmp v0.5.6
+	github.com/lestrrat-go/jwx v1.2.4 // indirect
+	github.com/lestrrat-go/pdebug v0.0.0-20200204225717-4d6bd78da58d // indirect
+	github.com/rs/zerolog v1.23.0
+	github.com/sy-software/minerva-go-utils v0.0.0-20210731184020-d01242235f05 // indirect
 )
