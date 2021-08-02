@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/rsa"
+	"errors"
 	"time"
 
 	"github.com/lestrrat-go/jwx/jwa"
@@ -12,6 +14,13 @@ import (
 
 const TOKEN_ISSUER = "minerva/spear/auth"
 const TOKEN_AUDIENCE = "minerva/app"
+
+type TokenUse string
+
+const (
+	Access  TokenUse = "access"
+	Refresh TokenUse = "refresh"
+)
 
 type AuthService struct {
 	repo   ports.UserRepo
@@ -26,8 +35,21 @@ func NewAuthService(repo ports.UserRepo, config domain.Config) *AuthService {
 }
 
 // Creates a minerva JWT for a user validated by an OAuth provider
+// TODO: Implement token count limit
 func (service *AuthService) Login(request domain.Login) (domain.UserToken, error) {
-	return domain.UserToken{}, nil
+	user, err := service.repo.GetByUsername(request.Username)
+
+	if err != nil {
+		return domain.UserToken{}, nil
+	}
+
+	key, err := service.config.Token.KeyPair()
+
+	if err != nil {
+		return domain.UserToken{}, err
+	}
+
+	return createUserToken(user, key, &service.config)
 }
 
 // Registers a user validated by an OAuth provider into minerva platform
@@ -37,24 +59,9 @@ func (service *AuthService) Register(request domain.Register) (domain.UserToken,
 	if err != nil {
 		return domain.UserToken{}, nil
 	}
+
 	now := mvdatetime.UnixUTCNow()
 	expire := now.Add(time.Duration(service.config.Token.Duration) * time.Second)
-
-	token := jwt.New()
-	token.Set(jwt.IssuerKey, TOKEN_ISSUER)
-	token.Set(jwt.ExpirationKey, expire)
-	token.Set(jwt.SubjectKey, newUser.Id)
-	token.Set(jwt.AudienceKey, TOKEN_AUDIENCE)
-
-	token.Set("use", "access")
-
-	refresh := jwt.New()
-	refresh.Set(jwt.IssuerKey, TOKEN_ISSUER)
-	refresh.Set(jwt.ExpirationKey, now.Add(time.Duration(service.config.Token.RefreshDuration)*time.Second))
-	refresh.Set(jwt.SubjectKey, newUser.Id)
-	refresh.Set(jwt.AudienceKey, TOKEN_AUDIENCE)
-
-	refresh.Set("use", "refresh")
 
 	key, err := service.config.Token.KeyPair()
 
@@ -62,21 +69,35 @@ func (service *AuthService) Register(request domain.Register) (domain.UserToken,
 		return domain.UserToken{}, err
 	}
 
-	serialized, err := jwt.Sign(token, jwa.RS256, key)
+	token, err := createToken(
+		newUser.Id,
+		expire,
+		Access,
+		key,
+	)
 
 	if err != nil {
 		return domain.UserToken{}, err
 	}
 
-	serializedRefresh, err := jwt.Sign(refresh, jwa.RS256, key)
+	refresh, err := createToken(
+		newUser.Id,
+		now.Add(time.Duration(service.config.Token.RefreshDuration)*time.Second),
+		Refresh,
+		key,
+	)
+
+	if err != nil {
+		return domain.UserToken{}, err
+	}
 
 	if err != nil {
 		return domain.UserToken{}, err
 	}
 
 	return domain.UserToken{
-		AccessToken:  string(serialized),
-		RefreshToken: string(serializedRefresh),
+		AccessToken:  token,
+		RefreshToken: refresh,
 		Info:         newUser,
 		TokenType:    "Bearer",
 		ExpireTime:   expire,
@@ -84,6 +105,105 @@ func (service *AuthService) Register(request domain.Register) (domain.UserToken,
 }
 
 // Refresh the current user token
-func (service *AuthService) Refresh(id string) (domain.UserToken, error) {
-	return domain.UserToken{}, nil
+// TODO: Implement single use refresh token, I.E.: Can't use same refresh token twice
+func (service *AuthService) Refresh(refreshToken string) (domain.UserToken, error) {
+	key, err := service.config.Token.KeyPair()
+
+	if err != nil {
+		return domain.UserToken{}, err
+	}
+
+	decoded, err := jwt.Parse(
+		[]byte(refreshToken),
+		jwt.WithVerify(jwa.RS256, key.PublicKey),
+		jwt.WithValidate(true),
+	)
+
+	if err != nil {
+		return domain.UserToken{}, err
+	}
+
+	use, ok := decoded.Get("use")
+	if !ok || use.(string) != string(Refresh) {
+		return domain.UserToken{}, errors.New("expected refresh token")
+	}
+
+	userId := decoded.Subject()
+
+	user, err := service.repo.GetById(userId)
+
+	if err != nil {
+		return domain.UserToken{}, nil
+	}
+
+	return createUserToken(user, key, &service.config)
+}
+
+// Get the current user information
+func (service *AuthService) Me(userId string) (domain.User, error) {
+	return service.repo.GetById(userId)
+}
+
+// Utils
+
+func createUserToken(user domain.User, key *rsa.PrivateKey, config *domain.Config) (domain.UserToken, error) {
+	now := mvdatetime.UnixUTCNow()
+	expire := now.Add(time.Duration(config.Token.Duration) * time.Second)
+
+	token, err := createToken(
+		user.Id,
+		expire,
+		Access,
+		key,
+	)
+
+	if err != nil {
+		return domain.UserToken{}, err
+	}
+
+	refresh, err := createToken(
+		user.Id,
+		now.Add(time.Duration(config.Token.RefreshDuration)*time.Second),
+		Refresh,
+		key,
+	)
+
+	if err != nil {
+		return domain.UserToken{}, err
+	}
+
+	if err != nil {
+		return domain.UserToken{}, err
+	}
+
+	return domain.UserToken{
+		AccessToken:  token,
+		RefreshToken: refresh,
+		Info:         user,
+		TokenType:    "Bearer",
+		ExpireTime:   expire,
+	}, nil
+}
+
+func createToken(
+	subject string,
+	expire time.Time,
+	use TokenUse,
+	key *rsa.PrivateKey,
+) (string, error) {
+	token := jwt.New()
+	token.Set(jwt.IssuerKey, TOKEN_ISSUER)
+	token.Set(jwt.ExpirationKey, expire)
+	token.Set(jwt.SubjectKey, subject)
+	token.Set(jwt.AudienceKey, TOKEN_AUDIENCE)
+
+	token.Set("use", use)
+
+	serialized, err := jwt.Sign(token, jwa.RS256, key)
+
+	if err != nil {
+		return "", nil
+	}
+
+	return string(serialized), nil
 }

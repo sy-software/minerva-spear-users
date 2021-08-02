@@ -19,9 +19,17 @@ type Token struct {
 	// For JWT signature using RS256 algorithm
 	PrivateKey string
 	PublicKey  string
+
+	// We need to parse the key into *rsa.PrivateKey to be usable
+	rsaKey *rsa.PrivateKey
 }
 
+// KeyPair parses private and public key string into a *rsa.PrivateKey instance
 func (t *Token) KeyPair() (*rsa.PrivateKey, error) {
+	if t.rsaKey != nil {
+		return t.rsaKey, nil
+	}
+
 	privPem, _ := pem.Decode([]byte(t.PrivateKey))
 
 	if privPem.Type != "RSA PRIVATE KEY" {
@@ -55,6 +63,7 @@ func (t *Token) KeyPair() (*rsa.PrivateKey, error) {
 
 	privateKey.PublicKey = *pubKey
 
+	t.rsaKey = privateKey
 	return privateKey, nil
 }
 
@@ -62,6 +71,7 @@ type Config struct {
 	Token Token
 }
 
+// DefaultConfig returns a configuration object with the default values
 func DefaultConfig() Config {
 	return Config{
 		Token: Token{
@@ -71,6 +81,7 @@ func DefaultConfig() Config {
 	}
 }
 
+// LoadConfiguration reads configuration from the specified json file
 func LoadConfiguration(file string) Config {
 	config := DefaultConfig()
 	configFile, err := os.Open(file)

@@ -9,5 +9,7 @@ type AuthService interface {
 	// Registers a user validated by an OAuth provider into minerva platform
 	Register(request domain.Register) (domain.UserToken, error)
 	// Refresh the current user token
-	Refresh(id string) (domain.UserToken, error)
+	Refresh(refreshToken string) (domain.UserToken, error)
+	// Get the current user information
+	Me(userId string) (domain.User, error)
 }

@@ -15,8 +15,6 @@ type User struct {
 type Login struct {
 	// User screen name, used for login
 	Username string `bson:"username,omitempty" json:"username,omitempty"`
-	// For RBAC operations
-	Role string `bson:"role,omitempty" json:"role,omitempty"`
 	// The OAuth2 provider used by this user
 	Provider string `bson:"provider,omitempty" json:"provider,omitempty"`
 	// The identifier connection this user with the OAuth provider
