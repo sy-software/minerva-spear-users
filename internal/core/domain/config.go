@@ -12,13 +12,13 @@ import (
 )
 
 type Token struct {
-	// Token duration in seconds
-	Duration int64
-	// Refresh Token in seconds
-	RefreshDuration int64
+	// Token duration in seconds, default: 7 days
+	Duration int64 `json:"duration,omitempty"`
+	// Refresh Token in seconds, default: 30 days
+	RefreshDuration int64 `json:"refreshDuration,omitempty"`
 	// For JWT signature using RS256 algorithm
-	PrivateKey string
-	PublicKey  string
+	PrivateKey string `json:"privateKey"`
+	PublicKey  string `json:"publicKey"`
 
 	// We need to parse the key into *rsa.PrivateKey to be usable
 	rsaKey *rsa.PrivateKey
@@ -67,8 +67,16 @@ func (t *Token) KeyPair() (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
+// UserRepoConfig contains options to connect to the user graphQL repo
+type UserRepoConfig struct {
+	// The user graphQL server URL
+	Url string `json:"url"`
+}
+
+// Config all options required by this service to run
 type Config struct {
-	Token Token
+	Token    Token          `json:"token"`
+	UserRepo UserRepoConfig `json:"userRepo"`
 }
 
 // DefaultConfig returns a configuration object with the default values
