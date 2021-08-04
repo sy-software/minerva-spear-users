@@ -24,7 +24,8 @@
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -116,4 +117,6 @@ n
 /Godeps/
 
 # End of https://www.toptal.com/developers/gitignore/api/go
-n
+
+# Keep configuration out from source control
+config.json
