@@ -75,8 +75,11 @@ type UserRepoConfig struct {
 
 // Config all options required by this service to run
 type Config struct {
-	Token    Token          `json:"token"`
-	UserRepo UserRepoConfig `json:"userRepo"`
+	Token     Token          `json:"token"`
+	UserRepo  UserRepoConfig `json:"userRepo"`
+	Host      string         `json:"host,omitempty"`
+	Port      string         `json:"port,omitempty"`
+	APIPrefix string         `json:"apiPrefix,omitempty"`
 }
 
 // DefaultConfig returns a configuration object with the default values
@@ -86,6 +89,9 @@ func DefaultConfig() Config {
 			Duration:        7 * 24 * 60 * 60,  // 7 days
 			RefreshDuration: 30 * 24 * 60 * 60, // 30 days
 		},
+		Host:      "0.0.0.0",
+		Port:      "8080",
+		APIPrefix: "/auth",
 	}
 }
 
