@@ -1,17 +1,17 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 	"github.com/sy-software/minerva-spear-users/internal/core/domain"
 	"github.com/sy-software/minerva-spear-users/internal/core/ports"
 )
 
-const BEARER_REGEX = "Bearer (.+)"
+const BEARER_REGEX = "^Bearer (.+)$"
 
 const USER_ID_HEADER = "X-USER-ID"
 
@@ -33,6 +33,7 @@ func (handler *AuthRESTHandler) CreateRoutes(router *gin.Engine) {
 
 		if err != nil {
 			handleError(err, c)
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": token})
@@ -43,6 +44,7 @@ func (handler *AuthRESTHandler) CreateRoutes(router *gin.Engine) {
 
 		if err != nil {
 			handleError(err, c)
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": token})
@@ -53,6 +55,7 @@ func (handler *AuthRESTHandler) CreateRoutes(router *gin.Engine) {
 
 		if err != nil {
 			handleError(err, c)
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": token})
@@ -63,6 +66,7 @@ func (handler *AuthRESTHandler) CreateRoutes(router *gin.Engine) {
 
 		if err != nil {
 			handleError(err, c)
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": user})
@@ -77,7 +81,19 @@ func (handler *AuthRESTHandler) Login(c *gin.Context) (domain.UserToken, error) 
 		return domain.UserToken{}, &InavalidBodyErr
 	}
 
-	return handler.service.Login(body)
+	user, err := handler.service.Login(body)
+
+	if err != nil {
+		if err.Error() == "not_found" {
+			return domain.UserToken{}, &UserNotRegisteredErr
+		}
+
+		// Any other error is considered an unknown or unexpected error
+		// user should only get internal server error
+		return domain.UserToken{}, &InternalServerError
+	}
+
+	return user, nil
 }
 
 func (handler *AuthRESTHandler) Register(c *gin.Context) (domain.UserToken, error) {
@@ -89,7 +105,19 @@ func (handler *AuthRESTHandler) Register(c *gin.Context) (domain.UserToken, erro
 		return domain.UserToken{}, &InavalidBodyErr
 	}
 
-	return handler.service.Register(body)
+	user, err := handler.service.Register(body)
+
+	if err != nil {
+		if err.Error() == "duplicated_value" {
+			return domain.UserToken{}, &UserAlreadyRegisteredErr
+		}
+
+		// Any other error is considered an unknown or unexpected error
+		// user should only get internal server error
+		return domain.UserToken{}, &InternalServerError
+	}
+
+	return user, nil
 }
 
 func (handler *AuthRESTHandler) Refresh(c *gin.Context) (domain.UserToken, error) {
@@ -97,7 +125,7 @@ func (handler *AuthRESTHandler) Refresh(c *gin.Context) (domain.UserToken, error
 
 	re := regexp.MustCompile(BEARER_REGEX)
 	if !re.MatchString(refreshToken) {
-		return domain.UserToken{}, errors.New("expected Bearer token")
+		return domain.UserToken{}, &InavalidTokenErr
 	}
 
 	groups := re.FindStringSubmatch(refreshToken)
@@ -119,6 +147,12 @@ func (handler *AuthRESTHandler) Me(c *gin.Context) (domain.User, error) {
 // Utils
 
 func handleError(err error, c *gin.Context) {
+	log.Error().Stack().Err(err).Msg("Request error:")
 	// TODO: Map errors to HTTP status codes
-	c.JSON(http.StatusNotFound, err)
+	if rest, ok := err.(*RestError); ok {
+		c.JSON(rest.HTTPStatus, gin.H{"error": rest})
+		return
+	}
+
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 }

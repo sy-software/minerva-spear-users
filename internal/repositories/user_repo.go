@@ -3,9 +3,15 @@ package repositories
 import (
 	"context"
 
+	"github.com/rs/zerolog/log"
 	"github.com/shurcooL/graphql"
 	"github.com/sy-software/minerva-spear-users/internal/core/domain"
 )
+
+type GraphError struct {
+	Message string
+	Path    []string
+}
 
 // UserRepo connects to minerva owl GraphQL server to manage users
 // Implements ports.UserRepo interface
@@ -22,6 +28,8 @@ func NewUserRepo(config *domain.Config) *UserRepo {
 		client: client,
 	}
 }
+
+// TODO: Handle repository connection errors, currently they will generate internal server error
 
 func (repo *UserRepo) Create(user domain.Register) (domain.User, error) {
 	var m struct {
@@ -71,6 +79,7 @@ func (repo *UserRepo) GetById(id string) (domain.User, error) {
 
 	err := repo.client.Query(context.Background(), &query, vars)
 	if err != nil {
+		log.Debug().Err(err).Msgf("Repo GetById Error:")
 		return domain.User{}, err
 	}
 
@@ -98,6 +107,7 @@ func (repo *UserRepo) GetByUsername(username string) (domain.User, error) {
 
 	err := repo.client.Query(context.Background(), &query, vars)
 	if err != nil {
+		log.Debug().Err(err).Msgf("Repo GetById Error:")
 		return domain.User{}, err
 	}
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -257,4 +258,140 @@ func TestMeEndpoint(t *testing.T) {
 	if info.Username != "IronMan" {
 		t.Errorf("Expected token for username: IronMan got: %q", info.Username)
 	}
+}
+
+func TestErrors(t *testing.T) {
+	config := domain.DefaultConfig()
+	config.Token.PrivateKey = PRIVATE_KEY
+	config.Token.PublicKey = PUBLIC_KEY
+
+	t.Run("Test invalid token error", func(t *testing.T) {
+		repo := mocks.UserRepo{
+			GetByUsernameInterceptor: func(username string) (domain.User, error) {
+				return domain.User{
+					Id:       "newid",
+					Name:     "Tony Stark",
+					Username: "IronMan",
+					Picture:  "https://picture.com/ironman",
+				}, nil
+			},
+		}
+
+		service := service.NewAuthService(&repo, config)
+
+		handler := NewAuthRESTHandler(&config, service)
+
+		context := gin.Context{
+			Request: &http.Request{
+				Header: http.Header{
+					"Authorization": []string{"Not A Bearer token"},
+				},
+			},
+		}
+
+		_, err := handler.Refresh(&context)
+
+		if err == nil {
+			t.Errorf("Expected an error got nil")
+		}
+
+		parsed, ok := err.(*RestError)
+
+		if !ok {
+			t.Errorf("Expected error of type RestError got: %v", err)
+		}
+
+		if parsed.Code != InvalidToken {
+			t.Errorf("Expected error code: %d got: %d", InvalidToken, parsed.Code)
+		}
+	})
+
+	t.Run("Test user not registered error", func(t *testing.T) {
+		repo := mocks.UserRepo{
+			GetByUsernameInterceptor: func(username string) (domain.User, error) {
+				return domain.User{}, errors.New("not_found")
+			},
+		}
+
+		service := service.NewAuthService(&repo, config)
+
+		handler := NewAuthRESTHandler(&config, service)
+
+		body := `
+		{
+			"username": "IronMan",
+			"provder": "StarkIndustries",
+			"tokenID": "myTokenId"
+		}
+		`
+		bodyReader := io.NopCloser(strings.NewReader(body))
+		context := gin.Context{
+			Request: &http.Request{
+				Header: http.Header{},
+				Body:   bodyReader,
+			},
+		}
+
+		_, err := handler.Login(&context)
+
+		if err == nil {
+			t.Errorf("Expected an error got nil")
+		}
+
+		parsed, ok := err.(*RestError)
+
+		if !ok {
+			t.Errorf("Expected error of type RestError got: %v", err)
+		}
+
+		if parsed.Code != UserNotRegistered {
+			t.Errorf("Expected error code: %d got: %d", UserNotRegistered, parsed.Code)
+		}
+	})
+
+	t.Run("Test user already registered error", func(t *testing.T) {
+		repo := mocks.UserRepo{
+			CreateInterceptor: func(user domain.Register) (domain.User, error) {
+				return domain.User{}, errors.New("duplicated_value")
+			},
+		}
+
+		service := service.NewAuthService(&repo, config)
+
+		handler := NewAuthRESTHandler(&config, service)
+
+		body := `
+		{
+			"username": "IronMan",
+			"name": "Tony Stark",
+			"picture": "https://picture.com/tony",
+			"role": "hero",
+			"provder": "StarkIndustries",
+			"tokenID": "myTokenId"
+		}
+		`
+		bodyReader := io.NopCloser(strings.NewReader(body))
+		context := gin.Context{
+			Request: &http.Request{
+				Header: http.Header{},
+				Body:   bodyReader,
+			},
+		}
+
+		_, err := handler.Register(&context)
+
+		if err == nil {
+			t.Errorf("Expected an error got nil")
+		}
+
+		parsed, ok := err.(*RestError)
+
+		if !ok {
+			t.Errorf("Expected error of type RestError got: %v", err)
+		}
+
+		if parsed.Code != UserAlreadyRegistered {
+			t.Errorf("Expected error code: %d got: %d", UserAlreadyRegistered, parsed.Code)
+		}
+	})
 }

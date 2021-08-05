@@ -40,7 +40,7 @@ func (service *AuthService) Login(request domain.Login) (domain.UserToken, error
 	user, err := service.repo.GetByUsername(request.Username)
 
 	if err != nil {
-		return domain.UserToken{}, nil
+		return domain.UserToken{}, err
 	}
 
 	key, err := service.config.Token.KeyPair()
@@ -57,7 +57,7 @@ func (service *AuthService) Register(request domain.Register) (domain.UserToken,
 	newUser, err := service.repo.Create(request)
 
 	if err != nil {
-		return domain.UserToken{}, nil
+		return domain.UserToken{}, err
 	}
 
 	now := mvdatetime.UnixUTCNow()
@@ -133,7 +133,7 @@ func (service *AuthService) Refresh(refreshToken string) (domain.UserToken, erro
 	user, err := service.repo.GetById(userId)
 
 	if err != nil {
-		return domain.UserToken{}, nil
+		return domain.UserToken{}, err
 	}
 
 	return createUserToken(user, key, &service.config)
