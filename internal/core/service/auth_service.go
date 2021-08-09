@@ -36,6 +36,7 @@ func NewAuthService(repo ports.UserRepo, config domain.Config) *AuthService {
 
 // Creates a minerva JWT for a user validated by an OAuth provider
 // TODO: Implement token count limit
+// TODO: Update user info on each new login
 func (service *AuthService) Login(request domain.Login) (domain.UserToken, error) {
 	user, err := service.repo.GetByUsername(request.Username)
 
@@ -73,6 +74,7 @@ func (service *AuthService) Register(request domain.Register) (domain.UserToken,
 		newUser.Id,
 		expire,
 		Access,
+		&newUser,
 		key,
 	)
 
@@ -84,6 +86,7 @@ func (service *AuthService) Register(request domain.Register) (domain.UserToken,
 		newUser.Id,
 		now.Add(time.Duration(service.config.Token.RefreshDuration)*time.Second),
 		Refresh,
+		nil,
 		key,
 	)
 
@@ -154,6 +157,7 @@ func createUserToken(user domain.User, key *rsa.PrivateKey, config *domain.Confi
 		user.Id,
 		expire,
 		Access,
+		&user,
 		key,
 	)
 
@@ -165,6 +169,7 @@ func createUserToken(user domain.User, key *rsa.PrivateKey, config *domain.Confi
 		user.Id,
 		now.Add(time.Duration(config.Token.RefreshDuration)*time.Second),
 		Refresh,
+		nil,
 		key,
 	)
 
@@ -189,6 +194,7 @@ func createToken(
 	subject string,
 	expire time.Time,
 	use TokenUse,
+	user *domain.User,
 	key *rsa.PrivateKey,
 ) (string, error) {
 	token := jwt.New()
@@ -198,6 +204,10 @@ func createToken(
 	token.Set(jwt.AudienceKey, TOKEN_AUDIENCE)
 
 	token.Set("use", use)
+
+	if user != nil {
+		token.Set("user", user)
+	}
 
 	serialized, err := jwt.Sign(token, jwa.RS256, key)
 

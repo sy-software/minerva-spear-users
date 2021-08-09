@@ -146,6 +146,7 @@ func TestRefreshToken(t *testing.T) {
 		"newid",
 		now.Add(time.Hour*time.Duration(24)),
 		Refresh,
+		&expectedInfo,
 		k,
 	)
 	newToken, err := service.Refresh(token)
@@ -236,6 +237,40 @@ func assertUserToken(
 		t.Errorf("Expected token use to be access got: %q", use)
 	}
 
+	decodedUser, ok := decoded.Get("user")
+	if !ok {
+		t.Errorf("Expected token to contain user info map got: %v", decodedUser)
+	}
+
+	userMap, ok := decodedUser.(map[string]interface{})
+	if !ok {
+		t.Errorf("Expected user info to be a map[string]string got: %v", userMap)
+	}
+
+	id, ok := userMap["id"]
+
+	if !ok || id != expectedInfo.Id {
+		t.Errorf("Expected id to be: %q got: %q", expectedInfo.Id, id)
+	}
+
+	username, ok := userMap["username"]
+
+	if !ok || username != expectedInfo.Username {
+		t.Errorf("Expected username to be: %q got: %q", expectedInfo.Username, username)
+	}
+
+	name, ok := userMap["name"]
+
+	if !ok || name != expectedInfo.Name {
+		t.Errorf("Expected name to be: %q got: %q", expectedInfo.Name, name)
+	}
+
+	picture, ok := userMap["picture"]
+
+	if !ok || picture != expectedInfo.Picture {
+		t.Errorf("Expected picture to be: %q got: %q", expectedInfo.Picture, picture)
+	}
+
 	decodedRefresh, err := jwt.Parse([]byte(token.RefreshToken), jwt.WithVerify(jwa.RS256, k.PublicKey), jwt.WithValidate(true))
 
 	if err != nil {
@@ -249,6 +284,11 @@ func assertUserToken(
 	use, ok = decodedRefresh.Get("use")
 	if !ok || use != "refresh" {
 		t.Errorf("Expected token use to be refresh got: %q", use)
+	}
+
+	decodedUser, ok = decodedRefresh.Get("user")
+	if ok {
+		t.Errorf("Expected refresh token to not contain user info map got: %v", decodedUser)
 	}
 
 	if token.TokenType != "Bearer" {

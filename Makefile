@@ -11,7 +11,6 @@ BINARY_PATH=bin/
 REST_HOME=cmd/rest
 ENTRY_POINT=$(REST_HOME)/server.go
 
-
 all: clean test build
 build:
 		$(GOBUILD) -o $(BINARY_PATH)$(BINARY_NAME) -v $(ENTRY_POINT)
@@ -26,7 +25,6 @@ run:
 		$(GORUN) $(ENTRY_POINT)
 deps:
 		$(GOGET)
-
 
 # Cross compilation
 build-all:
