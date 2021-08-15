@@ -225,7 +225,7 @@ func TestAuthenticateEndpoint(t *testing.T) {
 			},
 		}
 
-		token, err := handler.Authtenticate(&context)
+		token, err := handler.Authenticate(&context)
 
 		if err != nil {
 			t.Errorf("Expected to login without error, got: %v", err)
@@ -260,15 +260,15 @@ func TestAuthenticateEndpoint(t *testing.T) {
 		handler := NewAuthRESTHandler(&config, service)
 
 		userInfo := `
-	{
-		"username": "IronMan",
-		"name": "Tony Stark",
-		"picture": "https://picture.com/tony",
-		"role": "hero",
-		"provder": "StarkIndustries",
-		"tokenID": "myTokenId"
-	}
-	`
+		{
+			"username": "IronMan",
+			"name": "Tony Stark",
+			"picture": "https://picture.com/tony",
+			"role": "hero",
+			"provder": "StarkIndustries",
+			"tokenID": "myTokenId"
+		}
+		`
 
 		context := gin.Context{
 			Request: &http.Request{
@@ -278,7 +278,7 @@ func TestAuthenticateEndpoint(t *testing.T) {
 			},
 		}
 
-		token, err := handler.Authtenticate(&context)
+		token, err := handler.Authenticate(&context)
 
 		if err != nil {
 			t.Errorf("Expected to register without error, got: %v", err)

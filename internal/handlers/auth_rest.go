@@ -35,49 +35,63 @@ func NewAuthRESTHandler(config *domain.Config, service ports.AuthService) *AuthR
 }
 
 func (handler *AuthRESTHandler) CreateRoutes(router *gin.Engine) {
-	router.POST(fmt.Sprintf("%s/login", handler.config.APIPrefix), func(c *gin.Context) {
-		token, err := handler.Login(c)
+	group := router.Group(handler.config.APIPrefix)
+	{
+		group.POST("/login", func(c *gin.Context) {
+			token, err := handler.Login(c)
 
-		if err != nil {
-			handleError(err, c)
-			return
-		}
+			if err != nil {
+				handleError(err, c)
+				return
+			}
 
-		c.JSON(http.StatusOK, gin.H{"data": token})
-	})
+			c.JSON(http.StatusOK, gin.H{"data": token})
+		})
 
-	router.POST(fmt.Sprintf("%s/refresh", handler.config.APIPrefix), func(c *gin.Context) {
-		token, err := handler.Refresh(c)
+		group.POST("/refresh", func(c *gin.Context) {
+			token, err := handler.Refresh(c)
 
-		if err != nil {
-			handleError(err, c)
-			return
-		}
+			if err != nil {
+				handleError(err, c)
+				return
+			}
 
-		c.JSON(http.StatusOK, gin.H{"data": token})
-	})
+			c.JSON(http.StatusOK, gin.H{"data": token})
+		})
 
-	router.POST(fmt.Sprintf("%s/register", handler.config.APIPrefix), func(c *gin.Context) {
-		token, err := handler.Register(c)
+		group.POST("/register", func(c *gin.Context) {
+			token, err := handler.Register(c)
 
-		if err != nil {
-			handleError(err, c)
-			return
-		}
+			if err != nil {
+				handleError(err, c)
+				return
+			}
 
-		c.JSON(http.StatusOK, gin.H{"data": token})
-	})
+			c.JSON(http.StatusOK, gin.H{"data": token})
+		})
 
-	router.GET(fmt.Sprintf("%s/me", handler.config.APIPrefix), func(c *gin.Context) {
-		user, err := handler.Me(c)
+		group.POST("/authenticate", func(c *gin.Context) {
+			token, err := handler.Authenticate(c)
 
-		if err != nil {
-			handleError(err, c)
-			return
-		}
+			if err != nil {
+				handleError(err, c)
+				return
+			}
 
-		c.JSON(http.StatusOK, gin.H{"data": user})
-	})
+			c.JSON(http.StatusOK, gin.H{"data": token})
+		})
+
+		group.GET("/me", func(c *gin.Context) {
+			user, err := handler.Me(c)
+
+			if err != nil {
+				handleError(err, c)
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"data": user})
+		})
+	}
 }
 
 func (handler *AuthRESTHandler) Login(c *gin.Context) (domain.UserToken, error) {
@@ -166,7 +180,7 @@ func (handler *AuthRESTHandler) Refresh(c *gin.Context) (domain.UserToken, error
 	return handler.service.Refresh(refreshToken)
 }
 
-func (handler *AuthRESTHandler) Authtenticate(c *gin.Context) (domain.UserToken, error) {
+func (handler *AuthRESTHandler) Authenticate(c *gin.Context) (domain.UserToken, error) {
 
 	user, err := handler.Login(c)
 
