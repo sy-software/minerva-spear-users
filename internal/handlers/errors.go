@@ -11,6 +11,7 @@ const (
 	UserNotRegistered               = 54002
 	UserAlreadyRegistered           = 54003
 	InternalError                   = 54004
+	InavalidRequest                 = 54005
 )
 
 var (
@@ -42,6 +43,12 @@ var (
 		Code:       InternalError,
 		Message:    "internal server error",
 		HTTPStatus: http.StatusInternalServerError,
+	}
+
+	InvalidRequestError RestError = RestError{
+		Code:       InavalidRequest,
+		Message:    "ivalid request",
+		HTTPStatus: http.StatusBadRequest,
 	}
 )
 

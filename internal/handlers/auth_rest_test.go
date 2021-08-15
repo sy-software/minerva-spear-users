@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -37,18 +38,19 @@ func TestLoginEndpoint(t *testing.T) {
 
 	handler := NewAuthRESTHandler(&config, service)
 
-	body := `
+	userInfo := `
 	{
 		"username": "IronMan",
 		"provder": "StarkIndustries",
 		"tokenID": "myTokenId"
 	}
 	`
-	bodyReader := io.NopCloser(strings.NewReader(body))
+
 	context := gin.Context{
 		Request: &http.Request{
-			Header: http.Header{},
-			Body:   bodyReader,
+			Header: http.Header{
+				USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+			},
 		},
 	}
 
@@ -83,7 +85,7 @@ func TestRegisterEndpoint(t *testing.T) {
 
 	handler := NewAuthRESTHandler(&config, service)
 
-	body := `
+	userInfo := `
 	{
 		"username": "IronMan",
 		"name": "Tony Stark",
@@ -93,11 +95,12 @@ func TestRegisterEndpoint(t *testing.T) {
 		"tokenID": "myTokenId"
 	}
 	`
-	bodyReader := io.NopCloser(strings.NewReader(body))
+
 	context := gin.Context{
 		Request: &http.Request{
-			Header: http.Header{},
-			Body:   bodyReader,
+			Header: http.Header{
+				USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+			},
 		},
 	}
 
@@ -140,18 +143,18 @@ func TestRefreshEndpoint(t *testing.T) {
 
 	handler := NewAuthRESTHandler(&config, service)
 
-	body := `
+	userInfo := `
 	{
 		"username": "IronMan",
 		"provder": "StarkIndustries",
 		"tokenID": "myTokenId"
 	}
 	`
-	bodyReader := io.NopCloser(strings.NewReader(body))
 	context := gin.Context{
 		Request: &http.Request{
-			Header: http.Header{},
-			Body:   bodyReader,
+			Header: http.Header{
+				USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+			},
 		},
 	}
 
@@ -183,6 +186,108 @@ func TestRefreshEndpoint(t *testing.T) {
 	if login.RefreshToken == token.RefreshToken {
 		t.Errorf("Expected a new refresh access token got the same as login")
 	}
+}
+
+func TestAuthenticateEndpoint(t *testing.T) {
+	t.Run("Test login", func(t *testing.T) {
+		config := domain.DefaultConfig()
+		config.Token.PrivateKey = PRIVATE_KEY
+		config.Token.PublicKey = PUBLIC_KEY
+
+		repo := mocks.UserRepo{
+			GetByUsernameInterceptor: func(username string) (domain.User, error) {
+				return domain.User{
+					Id:       "newid",
+					Name:     "Tony Stark",
+					Username: "IronMan",
+					Picture:  "https://picture.com/ironman",
+				}, nil
+			},
+		}
+
+		service := service.NewAuthService(&repo, config)
+
+		handler := NewAuthRESTHandler(&config, service)
+
+		userInfo := `
+			{
+				"username": "IronMan",
+				"provder": "StarkIndustries",
+				"tokenID": "myTokenId"
+			}
+		`
+
+		context := gin.Context{
+			Request: &http.Request{
+				Header: http.Header{
+					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+				},
+			},
+		}
+
+		token, err := handler.Authtenticate(&context)
+
+		if err != nil {
+			t.Errorf("Expected to login without error, got: %v", err)
+		}
+
+		if token.Info.Username != "IronMan" {
+			t.Errorf("Expected token for username: IronMan got: %q", token.Info.Username)
+		}
+	})
+
+	t.Run("Test register", func(t *testing.T) {
+		config := domain.DefaultConfig()
+		config.Token.PrivateKey = PRIVATE_KEY
+		config.Token.PublicKey = PUBLIC_KEY
+
+		repo := mocks.UserRepo{
+			GetByUsernameInterceptor: func(username string) (domain.User, error) {
+				return domain.User{}, errors.New("not_found")
+			},
+			CreateInterceptor: func(user domain.Register) (domain.User, error) {
+				return domain.User{
+					Id:       "newid",
+					Name:     "Tony Stark",
+					Username: "IronMan",
+					Picture:  "https://picture.com/ironman",
+				}, nil
+			},
+		}
+
+		service := service.NewAuthService(&repo, config)
+
+		handler := NewAuthRESTHandler(&config, service)
+
+		userInfo := `
+	{
+		"username": "IronMan",
+		"name": "Tony Stark",
+		"picture": "https://picture.com/tony",
+		"role": "hero",
+		"provder": "StarkIndustries",
+		"tokenID": "myTokenId"
+	}
+	`
+
+		context := gin.Context{
+			Request: &http.Request{
+				Header: http.Header{
+					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+				},
+			},
+		}
+
+		token, err := handler.Authtenticate(&context)
+
+		if err != nil {
+			t.Errorf("Expected to register without error, got: %v", err)
+		}
+
+		if token.Info.Username != "IronMan" {
+			t.Errorf("Expected token for username: IronMan got: %q", token.Info.Username)
+		}
+	})
 }
 
 func TestMeEndpoint(t *testing.T) {
@@ -317,18 +422,19 @@ func TestErrors(t *testing.T) {
 
 		handler := NewAuthRESTHandler(&config, service)
 
-		body := `
+		userInfo := `
 		{
 			"username": "IronMan",
 			"provder": "StarkIndustries",
 			"tokenID": "myTokenId"
 		}
 		`
-		bodyReader := io.NopCloser(strings.NewReader(body))
+
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{},
-				Body:   bodyReader,
+				Header: http.Header{
+					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+				},
 			},
 		}
 
@@ -360,7 +466,7 @@ func TestErrors(t *testing.T) {
 
 		handler := NewAuthRESTHandler(&config, service)
 
-		body := `
+		userInfo := `
 		{
 			"username": "IronMan",
 			"name": "Tony Stark",
@@ -370,11 +476,12 @@ func TestErrors(t *testing.T) {
 			"tokenID": "myTokenId"
 		}
 		`
-		bodyReader := io.NopCloser(strings.NewReader(body))
+
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{},
-				Body:   bodyReader,
+				Header: http.Header{
+					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+				},
 			},
 		}
 
@@ -392,6 +499,60 @@ func TestErrors(t *testing.T) {
 
 		if parsed.Code != UserAlreadyRegistered {
 			t.Errorf("Expected error code: %d got: %d", UserAlreadyRegistered, parsed.Code)
+		}
+	})
+
+	t.Run("Test invalid user info header", func(t *testing.T) {
+		repo := mocks.UserRepo{
+			CreateInterceptor: func(user domain.Register) (domain.User, error) {
+				return domain.User{}, errors.New("duplicated_value")
+			},
+		}
+
+		service := service.NewAuthService(&repo, config)
+
+		handler := NewAuthRESTHandler(&config, service)
+
+		userInfo := "not json"
+
+		context := gin.Context{
+			Request: &http.Request{
+				Header: http.Header{
+					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
+				},
+			},
+		}
+
+		_, err := handler.Register(&context)
+
+		if err == nil {
+			t.Errorf("Expected an error got nil")
+		}
+
+		parsed, ok := err.(*RestError)
+
+		if !ok {
+			t.Errorf("Expected error of type RestError got: %v", err)
+		}
+
+		if parsed.Code != InavalidRequest {
+			t.Errorf("Expected error code: %d got: %d", InavalidRequest, parsed.Code)
+		}
+
+		_, err = handler.Login(&context)
+
+		if err == nil {
+			t.Errorf("Expected an error got nil")
+		}
+
+		parsed, ok = err.(*RestError)
+
+		if !ok {
+			t.Errorf("Expected error of type RestError got: %v", err)
+		}
+
+		if parsed.Code != InavalidRequest {
+			t.Errorf("Expected error code: %d got: %d", InavalidRequest, parsed.Code)
 		}
 	})
 }

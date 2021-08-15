@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -13,7 +15,12 @@ import (
 
 const BEARER_REGEX = "^Bearer (.+)$"
 
-const USER_ID_HEADER = "X-USER-ID"
+const (
+	REQUEST_ID_HEADER string = "X-REQUEST-ID"
+	USER_INFO_HEADER  string = "X-USER-INFO"
+	TOKEN_USE_HEADER  string = "X-TOKEN-USE"
+	USER_ID_HEADER    string = "X-USER-ID"
+)
 
 type AuthRESTHandler struct {
 	config  *domain.Config
@@ -74,14 +81,27 @@ func (handler *AuthRESTHandler) CreateRoutes(router *gin.Engine) {
 }
 
 func (handler *AuthRESTHandler) Login(c *gin.Context) (domain.UserToken, error) {
-	var body domain.Login
-	err := c.BindJSON(&body)
+	var login domain.Login
 
-	if err != nil {
-		return domain.UserToken{}, &InavalidBodyErr
+	userInfo := c.Request.Header[USER_INFO_HEADER]
+
+	if len(userInfo) == 0 {
+		return domain.UserToken{}, &InvalidRequestError
 	}
 
-	user, err := handler.service.Login(body)
+	userDecoded, err := base64.StdEncoding.DecodeString(userInfo[0])
+
+	if err != nil {
+		return domain.UserToken{}, &InvalidRequestError
+	}
+
+	err = json.Unmarshal(userDecoded, &login)
+
+	if err != nil {
+		return domain.UserToken{}, &InvalidRequestError
+	}
+
+	user, err := handler.service.Login(login)
 
 	if err != nil {
 		if err.Error() == "not_found" {
@@ -97,15 +117,27 @@ func (handler *AuthRESTHandler) Login(c *gin.Context) (domain.UserToken, error) 
 }
 
 func (handler *AuthRESTHandler) Register(c *gin.Context) (domain.UserToken, error) {
-	var body domain.Register
+	var register domain.Register
 
-	err := c.BindJSON(&body)
+	userInfo := c.Request.Header[USER_INFO_HEADER]
 
-	if err != nil {
-		return domain.UserToken{}, &InavalidBodyErr
+	if len(userInfo) == 0 {
+		return domain.UserToken{}, &InvalidRequestError
 	}
 
-	user, err := handler.service.Register(body)
+	userDecoded, err := base64.StdEncoding.DecodeString(userInfo[0])
+
+	if err != nil {
+		return domain.UserToken{}, &InvalidRequestError
+	}
+
+	err = json.Unmarshal(userDecoded, &register)
+
+	if err != nil {
+		return domain.UserToken{}, &InvalidRequestError
+	}
+
+	user, err := handler.service.Register(register)
 
 	if err != nil {
 		if err.Error() == "duplicated_value" {
@@ -132,6 +164,22 @@ func (handler *AuthRESTHandler) Refresh(c *gin.Context) (domain.UserToken, error
 	refreshToken = groups[1]
 
 	return handler.service.Refresh(refreshToken)
+}
+
+func (handler *AuthRESTHandler) Authtenticate(c *gin.Context) (domain.UserToken, error) {
+
+	user, err := handler.Login(c)
+
+	if err == nil {
+		return user, err
+	}
+
+	restError, ok := err.(*RestError)
+	if ok && restError.Code == UserNotRegistered {
+		return handler.Register(c)
+	}
+
+	return domain.UserToken{}, err
 }
 
 func (handler *AuthRESTHandler) Me(c *gin.Context) (domain.User, error) {
