@@ -6,7 +6,7 @@ GORUN=$(GOCMD) run
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) mod download
-BINARY_NAME=minerva-owl
+BINARY_NAME=minerva-spear-auth
 BINARY_PATH=bin/
 REST_HOME=cmd/rest
 ENTRY_POINT=$(REST_HOME)/server.go
@@ -36,5 +36,4 @@ build-all:
 		# GOOS=linux GOARCH=386 go build -o bin/main-linux-386 main.go
 		# GOOS=windows GOARCH=386 go build -o bin/main-windows-386 main.go
 docker-build:
-		echo "Not Implemented"
-		# docker run --rm -it -v "$(GOPATH)":/go -w /go/src/bitbucket.org/rsohlich/makepost golang:latest go build -o "$(BINARY_UNIX)" -v
+		docker build . -t yamidaisuke/minerva-spear-auth:latest
