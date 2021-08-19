@@ -10,5 +10,5 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/rs/zerolog v1.23.0
 	github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a
-	github.com/sy-software/minerva-go-utils v0.0.0-20210809225732-ad0d2314ce94
+	github.com/sy-software/minerva-go-utils v0.0.0-20210818225928-36f6fc1f86fb
 )

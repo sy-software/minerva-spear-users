@@ -97,27 +97,32 @@ func (handler *AuthRESTHandler) CreateRoutes(router *gin.Engine) {
 func (handler *AuthRESTHandler) Login(c *gin.Context) (domain.UserToken, error) {
 	var login domain.Login
 
-	userInfo := c.Request.Header[USER_INFO_HEADER]
+	log.Debug().Msgf("Request Headers: %+v", c.Request.Header)
+	userInfo := c.Request.Header.Get(USER_INFO_HEADER)
 
 	if len(userInfo) == 0 {
+		log.Error().Msg("User info header is not present")
 		return domain.UserToken{}, &InvalidRequestError
 	}
 
-	userDecoded, err := base64.StdEncoding.DecodeString(userInfo[0])
+	userDecoded, err := base64.StdEncoding.DecodeString(userInfo)
 
 	if err != nil {
+		log.Error().Err(err).Msg("User info header can't be decoded from base64")
 		return domain.UserToken{}, &InvalidRequestError
 	}
 
 	err = json.Unmarshal(userDecoded, &login)
 
 	if err != nil {
+		log.Error().Err(err).Msg("User info header can't be decoded from JSON")
 		return domain.UserToken{}, &InvalidRequestError
 	}
 
 	user, err := handler.service.Login(login)
 
 	if err != nil {
+		log.Error().Err(err).Msg("Login error")
 		if err.Error() == "not_found" {
 			return domain.UserToken{}, &UserNotRegisteredErr
 		}
@@ -133,13 +138,13 @@ func (handler *AuthRESTHandler) Login(c *gin.Context) (domain.UserToken, error) 
 func (handler *AuthRESTHandler) Register(c *gin.Context) (domain.UserToken, error) {
 	var register domain.Register
 
-	userInfo := c.Request.Header[USER_INFO_HEADER]
+	userInfo := c.Request.Header.Get(USER_INFO_HEADER)
 
 	if len(userInfo) == 0 {
 		return domain.UserToken{}, &InvalidRequestError
 	}
 
-	userDecoded, err := base64.StdEncoding.DecodeString(userInfo[0])
+	userDecoded, err := base64.StdEncoding.DecodeString(userInfo)
 
 	if err != nil {
 		return domain.UserToken{}, &InvalidRequestError
@@ -181,27 +186,30 @@ func (handler *AuthRESTHandler) Refresh(c *gin.Context) (domain.UserToken, error
 }
 
 func (handler *AuthRESTHandler) Authenticate(c *gin.Context) (domain.UserToken, error) {
-
+	log.Info().Msg("Start authenticate request")
+	log.Info().Msg("Trying to login")
 	user, err := handler.Login(c)
 
 	if err == nil {
+		log.Info().Msg("Login successful")
 		return user, err
 	}
 
 	restError, ok := err.(*RestError)
 	if ok && restError.Code == UserNotRegistered {
+		log.Info().Msg("Trying to register")
 		return handler.Register(c)
 	}
 
+	log.Error().Err(err).Msg("Other error")
 	return domain.UserToken{}, err
 }
 
 func (handler *AuthRESTHandler) Me(c *gin.Context) (domain.User, error) {
-	if len(c.Request.Header[USER_ID_HEADER]) != 1 {
+	userId := c.Request.Header.Get(USER_ID_HEADER)
+	if userId == "" {
 		return domain.User{}, fmt.Errorf("expected header %q to have exactly one value", USER_ID_HEADER)
 	}
-
-	userId := c.Request.Header[USER_ID_HEADER][0]
 
 	return handler.service.Me(userId)
 }
@@ -209,7 +217,7 @@ func (handler *AuthRESTHandler) Me(c *gin.Context) (domain.User, error) {
 // Utils
 
 func handleError(err error, c *gin.Context) {
-	log.Error().Stack().Err(err).Msg("Request error:")
+	log.Error().Stack().Err(err).Msg("Request error")
 	// TODO: Map errors to HTTP status codes
 	if rest, ok := err.(*RestError); ok {
 		c.JSON(rest.HTTPStatus, gin.H{"error": rest})

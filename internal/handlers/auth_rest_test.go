@@ -45,12 +45,11 @@ func TestLoginEndpoint(t *testing.T) {
 		"tokenID": "myTokenId"
 	}
 	`
-
+	headers := http.Header{}
+	headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 	context := gin.Context{
 		Request: &http.Request{
-			Header: http.Header{
-				USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-			},
+			Header: headers,
 		},
 	}
 
@@ -95,12 +94,11 @@ func TestRegisterEndpoint(t *testing.T) {
 		"tokenID": "myTokenId"
 	}
 	`
-
+	headers := http.Header{}
+	headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 	context := gin.Context{
 		Request: &http.Request{
-			Header: http.Header{
-				USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-			},
+			Header: headers,
 		},
 	}
 
@@ -150,11 +148,12 @@ func TestRefreshEndpoint(t *testing.T) {
 		"tokenID": "myTokenId"
 	}
 	`
+
+	headers := http.Header{}
+	headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 	context := gin.Context{
 		Request: &http.Request{
-			Header: http.Header{
-				USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-			},
+			Header: headers,
 		},
 	}
 
@@ -162,11 +161,11 @@ func TestRefreshEndpoint(t *testing.T) {
 	// Wait a few seconds to have a token with different expiration
 	time.Sleep(1 * time.Second)
 
+	headers = http.Header{}
+	headers.Add("Authorization", "Bearer "+login.RefreshToken)
 	context = gin.Context{
 		Request: &http.Request{
-			Header: http.Header{
-				"Authorization": []string{"Bearer " + login.RefreshToken},
-			},
+			Header: headers,
 		},
 	}
 	token, err := handler.Refresh(&context)
@@ -216,12 +215,11 @@ func TestAuthenticateEndpoint(t *testing.T) {
 				"tokenID": "myTokenId"
 			}
 		`
-
+		headers := http.Header{}
+		headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{
-					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-				},
+				Header: headers,
 			},
 		}
 
@@ -270,11 +268,11 @@ func TestAuthenticateEndpoint(t *testing.T) {
 		}
 		`
 
+		headers := http.Header{}
+		headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{
-					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-				},
+				Header: headers,
 			},
 		}
 
@@ -341,13 +339,12 @@ func TestMeEndpoint(t *testing.T) {
 	}
 
 	login, _ := handler.Login(&context)
+	headers := http.Header{}
+	headers.Add("Authorization", "Bearer "+login.AccessToken)
+	headers.Add(USER_ID_HEADER, "newid")
 	context = gin.Context{
 		Request: &http.Request{
-			Header: http.Header{
-				"Authorization": []string{"Bearer " + login.AccessToken},
-				// This header will be set by minerva shield
-				USER_ID_HEADER: []string{"newid"},
-			},
+			Header: headers,
 		},
 	}
 	info, err := handler.Me(&context)
@@ -385,12 +382,11 @@ func TestErrors(t *testing.T) {
 		service := service.NewAuthService(&repo, config)
 
 		handler := NewAuthRESTHandler(&config, service)
-
+		headers := http.Header{}
+		headers.Add("Authorization", "Not A Bearer token")
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{
-					"Authorization": []string{"Not A Bearer token"},
-				},
+				Header: headers,
 			},
 		}
 
@@ -429,12 +425,11 @@ func TestErrors(t *testing.T) {
 			"tokenID": "myTokenId"
 		}
 		`
-
+		headers := http.Header{}
+		headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{
-					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-				},
+				Header: headers,
 			},
 		}
 
@@ -477,11 +472,11 @@ func TestErrors(t *testing.T) {
 		}
 		`
 
+		headers := http.Header{}
+		headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{
-					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-				},
+				Header: headers,
 			},
 		}
 
@@ -515,11 +510,11 @@ func TestErrors(t *testing.T) {
 
 		userInfo := "not json"
 
+		headers := http.Header{}
+		headers.Add(USER_INFO_HEADER, base64.StdEncoding.EncodeToString([]byte(userInfo)))
 		context := gin.Context{
 			Request: &http.Request{
-				Header: http.Header{
-					USER_INFO_HEADER: []string{base64.StdEncoding.EncodeToString([]byte(userInfo))},
-				},
+				Header: headers,
 			},
 		}
 

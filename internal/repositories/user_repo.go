@@ -79,7 +79,7 @@ func (repo *UserRepo) GetById(id string) (domain.User, error) {
 
 	err := repo.client.Query(context.Background(), &query, vars)
 	if err != nil {
-		log.Debug().Err(err).Msgf("Repo GetById Error:")
+		log.Debug().Err(err).Msgf("Repo GetById Error")
 		return domain.User{}, err
 	}
 
@@ -107,7 +107,7 @@ func (repo *UserRepo) GetByUsername(username string) (domain.User, error) {
 
 	err := repo.client.Query(context.Background(), &query, vars)
 	if err != nil {
-		log.Debug().Err(err).Msgf("Repo GetById Error:")
+		log.Debug().Err(err).Msgf("Repo GetById Error")
 		return domain.User{}, err
 	}
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,26 +10,19 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/sy-software/minerva-spear-users/internal/core/domain"
+	minervaLog "github.com/sy-software/minerva-go-utils/log"
 	"github.com/sy-software/minerva-spear-users/internal/core/service"
 	"github.com/sy-software/minerva-spear-users/internal/handlers"
 	"github.com/sy-software/minerva-spear-users/internal/repositories"
 )
 
-const defaultConfigFile = "./config.json"
-
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	minervaLog.ConfigureLogger(minervaLog.LogLevel(os.Getenv("LOG_LEVEL")), os.Getenv("CONSOLE_OUTPUT") != "")
 	log.Info().Msg("Starting server")
 
-	configFile := os.Getenv("CONFIG_FILE")
-	if configFile == "" {
-		configFile = defaultConfigFile
-	}
-
-	config := domain.LoadConfiguration(configFile)
+	configRepo := repositories.ConfigRepo{}
+	config := configRepo.Get()
 
 	repo := repositories.NewUserRepo(&config)
 
@@ -42,16 +34,21 @@ func main() {
 
 	handler.CreateRoutes(router)
 
+	address := fmt.Sprintf("%s:%s", config.Host, config.Port)
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", config.Host, config.Port),
+		Addr:    address,
 		Handler: router,
 	}
 
 	// Initializing the server in a goroutine so that
 	// it won't block the graceful shutdown handling below
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
-			log.Error().Stack().Err(err).Msg("Listen:")
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Info().Msgf("listen: %s", address)
+		} else {
+			log.Panic().Err(err).Msg("Can't start server")
+			os.Exit(1)
 		}
 	}()
 
@@ -71,7 +68,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Error().Stack().Err(err).Msg("Server forced to shutdown:")
+		log.Error().Stack().Err(err).Msg("Server forced to shutdown")
 	}
 
 	log.Info().Msg("Server exiting")
